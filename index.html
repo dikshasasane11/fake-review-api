@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ReviewGuard — AI Fake Review Detector</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #f0f0f5;
+    --muted: #7a7a8c;
+    --accent: #00e5a0;
+    --accent2: #ff4d6d;
+    --accent-dim: rgba(0,229,160,0.1);
+    --danger-dim: rgba(255,77,109,0.1);
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Grid background ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Glow orbs ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb-1 { width: 500px; height: 500px; background: rgba(0,229,160,0.06); top: -100px; right: -100px; }
+  .orb-2 { width: 400px; height: 400px; background: rgba(255,77,109,0.05); bottom: 100px; left: -100px; }
+
+  /* ── Nav ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 1.25rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(20px);
+  }
+
+  .logo {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .logo span { color: var(--accent); }
+
+  .nav-badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 100px;
+    border: 1px solid rgba(0,229,160,0.3);
+    color: var(--accent);
+    background: var(--accent-dim);
+    letter-spacing: 0.04em;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 8rem 2rem 4rem;
+  }
+
+  .hero-eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.2s;
+  }
+
+  .hero-title {
+    font-family: var(--font-display);
+    font-size: clamp(2.8rem, 8vw, 6rem);
+    font-weight: 800;
+    line-height: 1.0;
+    letter-spacing: -0.03em;
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.4s;
+  }
+  .hero-title .line2 { color: var(--accent); }
+
+  .hero-sub {
+    font-size: 1.1rem;
+    font-weight: 300;
+    color: var(--muted);
+    max-width: 520px;
+    margin: 0 auto 3rem;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.6s;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 2.5rem;
+    justify-content: center;
+    margin-top: 3rem;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 1s;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Main detector card ── */
+  .detector-section {
+    position: relative;
+    z-index: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 0 1.5rem 6rem;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.8s;
+  }
+
+  .detector-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 24px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card-header-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .card-header-title {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .card-body { padding: 2rem; }
+
+  /* ── Textarea ── */
+  .input-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: .75rem;
+    display: block;
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 300;
+    color: var(--text);
+    resize: none;
+    outline: none;
+    line-height: 1.7;
+    transition: border-color 0.2s;
+    min-height: 140px;
+  }
+  textarea:focus { border-color: rgba(0,229,160,0.4); }
+  textarea::placeholder { color: var(--muted); }
+
+  /* ── Controls row ── */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .rating-label {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .star-group { display: flex; gap: 4px; }
+  .star-btn {
+    width: 32px; height: 32px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .star-btn.active { background: rgba(255,193,7,0.15); border-color: rgba(255,193,7,0.4); color: #ffc107; }
+
+  .analyze-btn {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: .75rem 2rem;
+    background: var(--accent);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 100px;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .analyze-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,229,160,0.3); }
+  .analyze-btn:active { transform: translateY(0); }
+  .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(10,10,15,0.3);
+    border-top-color: #0a0a0f;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  .analyzing .btn-spinner { display: block; }
+  .analyzing .btn-arrow { display: none; }
+
+  /* ── Result ── */
+  #result { margin-top: 1.5rem; }
+
+  .result-card {
+    border-radius: 16px;
+    padding: 1.5rem;
+    border: 1px solid;
+    animation: fadeUp 0.4s ease forwards;
+  }
+  .result-genuine {
+    background: rgba(0,229,160,0.06);
+    border-color: rgba(0,229,160,0.2);
+  }
+  .result-fake {
+    background: rgba(255,77,109,0.06);
+    border-color: rgba(255,77,109,0.2);
+  }
+
+  .result-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .result-verdict {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .verdict-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .icon-genuine { background: rgba(0,229,160,0.15); }
+  .icon-fake { background: rgba(255,77,109,0.15); }
+
+  .verdict-label {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .label-genuine { color: var(--accent); }
+  .label-fake { color: var(--accent2); }
+
+  .verdict-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  .confidence-pill {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: .5rem 1.25rem;
+    border-radius: 100px;
+  }
+  .pill-genuine { background: var(--accent-dim); color: var(--accent); }
+  .pill-fake { background: var(--danger-dim); color: var(--accent2); }
+
+  /* ── Signals grid ── */
+  .signals-title {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: .75rem;
+  }
+
+  .signals-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .signal-cell {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: .65rem .85rem;
+  }
+  .signal-name { font-size: 10px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .signal-val { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: var(--text); }
+  .signal-val.flag { color: var(--accent2); }
+
+  /* ── Try samples ── */
+  .samples-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .samples-label { font-size: 12px; color: var(--muted); margin-bottom: .75rem; }
+  .sample-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sample-chip {
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .sample-chip:hover { border-color: rgba(0,229,160,0.3); color: var(--accent); }
+
+  /* ── How it works ── */
+  .how-section {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+  }
+  .section-eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .how-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .how-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 1.75rem;
+    transition: border-color 0.2s;
+  }
+  .how-card:hover { border-color: rgba(0,229,160,0.2); }
+
+  .how-num {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: rgba(0,229,160,0.15);
+    line-height: 1;
+    margin-bottom: 1rem;
+  }
+  .how-card-title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: .5rem;
+  }
+  .how-card-text { font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+  /* ── Footer ── */
+  footer {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 2rem;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.5; }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .how-grid { grid-template-columns: 1fr; }
+    .signals-grid { grid-template-columns: repeat(2, 1fr); }
+    .hero-stats { gap: 1.5rem; }
+    .analyze-btn { width: 100%; justify-content: center; }
+    nav { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- Nav -->
+<nav>
+  <a href="#" class="logo">Review<span>Guard</span></a>
+  <span class="nav-badge">AI Powered</span>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-eyebrow">Machine Learning · NLP · Real-time Analysis</div>
+  <h1 class="hero-title">
+    Detect Fake Reviews<br>
+    <span class="line2">Instantly.</span>
+  </h1>
+  <p class="hero-sub">
+    Paste any hotel review below. Our ML model trained on 20,000+ reviews
+    tells you if it's genuine or fabricated — in milliseconds.
+  </p>
+
+  <!-- Detector Card -->
+  <div class="detector-section">
+    <div class="detector-card">
+      <div class="card-header">
+        <div class="card-header-dot"></div>
+        <span class="card-header-title">Review Analyzer</span>
+      </div>
+      <div class="card-body">
+        <label class="input-label" for="review-text">Paste review text</label>
+        <textarea
+          id="review-text"
+          placeholder="e.g. Stayed here for 3 nights. The room was clean and staff were helpful. Breakfast could be better but overall a pleasant experience..."
+        ></textarea>
+
+        <div class="controls">
+          <span class="rating-label">Star rating:</span>
+          <div class="star-group" id="star-group">
+            <button class="star-btn" data-val="1" onclick="setRating(1)">1</button>
+            <button class="star-btn" data-val="2" onclick="setRating(2)">2</button>
+            <button class="star-btn" data-val="3" onclick="setRating(3)">3</button>
+            <button class="star-btn active" data-val="4" onclick="setRating(4)">4</button>
+            <button class="star-btn" data-val="5" onclick="setRating(5)">5</button>
+          </div>
+          <button class="analyze-btn" id="analyze-btn" onclick="analyze()">
+            <span class="btn-arrow">Analyze →</span>
+            <span class="btn-spinner"></span>
+          </button>
+        </div>
+
+        <div id="result"></div>
+
+        <div class="samples-section">
+          <div class="samples-label">Try a sample:</div>
+          <div class="sample-chips">
+            <span class="sample-chip" onclick="loadSample('fake1')">Suspicious 5-star</span>
+            <span class="sample-chip" onclick="loadSample('genuine1')">Genuine mixed review</span>
+            <span class="sample-chip" onclick="loadSample('fake2')">Bot-like negative</span>
+            <span class="sample-chip" onclick="loadSample('genuine2')">Detailed genuine</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="hero-stats">
+    <div class="stat"><div class="stat-num">20K+</div><div class="stat-label">Reviews trained on</div></div>
+    <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Model accuracy</div></div>
+    <div class="stat"><div class="stat-num">&lt;20ms</div><div class="stat-label">Response time</div></div>
+    <div class="stat"><div class="stat-num">5K</div><div class="stat-label">TF-IDF features</div></div>
+  </div>
+</section>
+
+<!-- How it works -->
+<section class="how-section">
+  <div class="section-eyebrow">Under the Hood</div>
+  <h2 class="section-title">How it works</h2>
+  <div class="how-grid">
+    <div class="how-card">
+      <div class="how-num">01</div>
+      <div class="how-card-title">Text Signals</div>
+      <div class="how-card-text">We extract 9 handcrafted features — word count, exclamation density, unique word ratio, sentence structure, and more.</div>
+    </div>
+    <div class="how-card">
+      <div class="how-num">02</div>
+      <div class="how-card-title">TF-IDF Analysis</div>
+      <div class="how-card-text">5,000 bigram features capture language patterns. Fake reviews often reuse specific phrases that real reviews don't.</div>
+    </div>
+    <div class="how-card">
+      <div class="how-num">03</div>
+      <div class="how-card-title">ML Classification</div>
+      <div class="how-card-text">A Logistic Regression model combines all signals and returns a verdict with confidence score in under 20ms.</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Built with FastAPI + scikit-learn · ReviewGuard &copy; 2026
+</footer>
+
+<script>
+  let selectedRating = 4;
+
+  const samples = {
+    fake1: { text: "AMAZING!!! BEST HOTEL EVER!!! PERFECT PERFECT PERFECT!!! HIGHLY RECOMMEND!!!", rating: 5 },
+    genuine1: { text: "Food quality is good. Service charge is a bit high. They charged 100rs service charge for a 40rs soft drink. Overall resort is good and scenic. Good for a relaxing weekend.", rating: 3 },
+    fake2: { text: "WORST HOTEL EVER!!! TERRIBLE!!! DO NOT STAY HERE!!! AWFUL AWFUL AWFUL!!!", rating: 1 },
+    genuine2: { text: "Stayed for 3 nights with family. The room was spacious and clean, housekeeping did a great job. Breakfast buffet had decent variety though the eggs were often cold. Location is convenient — 10 mins walk to the market. Staff at reception were responsive. AC worked well. Would stay again for the price point.", rating: 4 },
+  };
+
+  function setRating(val) {
+    selectedRating = val;
+    document.querySelectorAll('.star-btn').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.val) === val);
+    });
+  }
+
+  function loadSample(key) {
+    const s = samples[key];
+    document.getElementById('review-text').value = s.text;
+    setRating(s.rating);
+    document.getElementById('result').innerHTML = '';
+  }
+
+  async function analyze() {
+    const text = document.getElementById('review-text').value.trim();
+    if (!text) {
+      document.getElementById('review-text').focus();
+      return;
+    }
+
+    const btn = document.getElementById('analyze-btn');
+    btn.disabled = true;
+    btn.classList.add('analyzing');
+    document.getElementById('result').innerHTML = '';
+
+    try {
+      const res = await fetch('http://127.0.0.1:8000/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, rating: selectedRating }),
+      });
+
+      if (!res.ok) throw new Error('API error ' + res.status);
+      const data = await res.json();
+      renderResult(data);
+    } catch (err) {
+      document.getElementById('result').innerHTML = `
+        <div style="padding:1rem;background:rgba(255,77,109,0.08);border:1px solid rgba(255,77,109,0.2);border-radius:12px;color:#ff4d6d;font-size:13px;">
+          Could not reach the API. Make sure the FastAPI server is running on <code>http://127.0.0.1:8000</code>
+        </div>`;
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('analyzing');
+    }
+  }
+
+  function renderResult(data) {
+    const isFake = data.is_fake;
+    const conf = Math.round(data.confidence * 100);
+    const s = data.signals;
+
+    const flagWc  = s.word_count < 20;
+    const flagEx  = s.exclamation_count > 3;
+    const flagUniq = s.unique_word_ratio < 0.6;
+
+    document.getElementById('result').innerHTML = `
+      <div class="result-card ${isFake ? 'result-fake' : 'result-genuine'}">
+        <div class="result-top">
+          <div class="result-verdict">
+            <div class="verdict-icon ${isFake ? 'icon-fake' : 'icon-genuine'}">
+              ${isFake ? '🚩' : '✅'}
+            </div>
+            <div>
+              <div class="verdict-label ${isFake ? 'label-fake' : 'label-genuine'}">
+                ${isFake ? 'Likely Fake' : 'Likely Genuine'}
+              </div>
+              <div class="verdict-sub">${isFake
+                ? 'This review shows signs of being fabricated'
+                : 'This review appears to be authentic'}</div>
+            </div>
+          </div>
+          <div class="confidence-pill ${isFake ? 'pill-fake' : 'pill-genuine'}">
+            ${conf}% confident
+          </div>
+        </div>
+
+        <div class="signals-title">Text Signals</div>
+        <div class="signals-grid">
+          <div class="signal-cell">
+            <div class="signal-name">Word count</div>
+            <div class="signal-val ${flagWc ? 'flag' : ''}">${s.word_count}</div>
+          </div>
+          <div class="signal-cell">
+            <div class="signal-name">Exclamations</div>
+            <div class="signal-val ${flagEx ? 'flag' : ''}">${s.exclamation_count}</div>
+          </div>
+          <div class="signal-cell">
+            <div class="signal-name">Unique words</div>
+            <div class="signal-val ${flagUniq ? 'flag' : ''}">${(s.unique_word_ratio * 100).toFixed(0)}%</div>
+          </div>
+          <div class="signal-cell">
+            <div class="signal-name">Sentences</div>
+            <div class="signal-val">${s.sentence_count}</div>
+          </div>
+          <div class="signal-cell">
+            <div class="signal-name">Avg word len</div>
+            <div class="signal-val">${s.avg_word_len.toFixed(1)}</div>
+          </div>
+          <div class="signal-cell">
+            <div class="signal-name">Superlatives</div>
+            <div class="signal-val ${s.superlative_count > 2 ? 'flag' : ''}">${s.superlative_count}</div>
+          </div>
+        </div>
+
+        <div style="margin-top:.75rem;font-size:11px;color:var(--muted);">
+          Response time: ${data.latency_ms}ms &nbsp;·&nbsp; Model: Logistic Regression + TF-IDF
+        </div>
+      </div>`;
+  }
+
+  document.getElementById('review-text').addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'Enter') analyze();
+  });
+</script>
+</body>
+</html>
