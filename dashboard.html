@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ReviewGuard — Analytics Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{--bg:#080810;--surface:#0f0f1a;--surface2:#161625;--surface3:#1e1e30;--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);--text:#eeeef5;--muted:#6e6e85;--muted2:#9999b3;--accent:#00e5a0;--accent2:#ff4d6d;--accent3:#7c6aff;--accent-dim:rgba(0,229,160,0.08);--danger-dim:rgba(255,77,109,0.08);--font-display:"Syne",sans-serif;--font-body:"DM Sans",sans-serif;--radius:16px;--radius-sm:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:15px;line-height:1.6;min-height:100vh;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,160,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,160,0.02) 1px,transparent 1px);background-size:56px 56px;pointer-events:none;z-index:0}
+nav{position:sticky;top:0;z-index:100;padding:.9rem 2rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:rgba(8,8,16,0.92);backdrop-filter:blur(24px)}
+.logo{font-family:var(--font-display);font-size:1.2rem;font-weight:800;letter-spacing:-0.02em;color:var(--text);text-decoration:none}
+.logo span{color:var(--accent)}
+.nav-right{display:flex;align-items:center;gap:12px}
+.nav-link{font-size:13px;color:var(--muted2);text-decoration:none;padding:.4rem .9rem;border-radius:100px;border:1px solid var(--border2);transition:all 0.15s}
+.nav-link:hover{color:var(--accent);border-color:rgba(0,229,160,0.3)}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 2s infinite;display:inline-block;margin-right:6px}
+main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:2rem 1.5rem 4rem}
+.page-header{margin-bottom:2rem}
+.page-title{font-family:var(--font-display);font-size:clamp(1.6rem,4vw,2.2rem);font-weight:800;letter-spacing:-0.03em;margin-bottom:.4rem}
+.page-sub{font-size:13px;color:var(--muted2)}
+.refresh-btn{display:inline-flex;align-items:center;gap:6px;padding:.45rem 1rem;border-radius:100px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-size:12px;cursor:pointer;font-family:var(--font-body);transition:all 0.15s;margin-top:.75rem}
+.refresh-btn:hover{border-color:var(--accent);color:var(--accent)}
+.metrics-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:1.5rem}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;transition:border-color 0.2s}
+.metric-card:hover{border-color:var(--border2)}
+.metric-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:.6rem}
+.metric-value{font-family:var(--font-display);font-size:2rem;font-weight:800;line-height:1;margin-bottom:.3rem}
+.metric-sub{font-size:12px;color:var(--muted2)}
+.metric-fake .metric-value{color:var(--accent2)}
+.metric-genuine .metric-value{color:var(--accent)}
+.metric-total .metric-value{color:var(--text)}
+.metric-conf .metric-value{color:var(--accent3)}
+.charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:1.5rem}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem}
+.chart-title{font-family:var(--font-display);font-size:14px;font-weight:600;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between}
+.chart-sub{font-size:11px;color:var(--muted);font-weight:400}
+.chart-wrap{position:relative}
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:1.5rem}
+.signals-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem}
+.signal-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.signal-row:last-child{margin-bottom:0}
+.signal-name-col{font-size:12px;color:var(--muted2);width:140px;flex-shrink:0}
+.signal-bar-track{flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden}
+.signal-bar-fill{height:100%;border-radius:3px;background:var(--accent2);transition:width 0.8s ease}
+.signal-count{font-size:12px;font-weight:500;color:var(--text);width:36px;text-align:right;flex-shrink:0}
+.donut-wrap{display:flex;flex-direction:column;align-items:center;gap:1rem}
+.donut-legend{display:flex;flex-direction:column;gap:8px;width:100%}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted2)}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.legend-val{margin-left:auto;font-weight:500;color:var(--text)}
+.recent-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.5rem}
+.recent-table{width:100%;border-collapse:collapse}
+.recent-table th{font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;padding:.6rem .75rem;text-align:left;border-bottom:1px solid var(--border)}
+.recent-table td{font-size:12px;color:var(--muted2);padding:.65rem .75rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.recent-table tr:last-child td{border-bottom:none}
+.recent-table tr:hover td{background:var(--surface2)}
+.badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:100px}
+.badge-fake{background:var(--danger-dim);color:var(--accent2);border:1px solid rgba(255,77,109,0.2)}
+.badge-genuine{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(0,229,160,0.2)}
+.rating-dist-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem}
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--muted)}
+.empty-icon{font-size:2.5rem;margin-bottom:.75rem}
+.empty-text{font-size:14px}
+.loading{text-align:center;padding:4rem;color:var(--muted);font-size:14px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{opacity:0;animation:fadeUp 0.5s ease forwards}
+@media(max-width:768px){.metrics-grid{grid-template-columns:repeat(2,1fr)}.charts-grid{grid-template-columns:1fr}.bottom-grid{grid-template-columns:1fr}.recent-table th:nth-child(4),.recent-table td:nth-child(4){display:none}nav{padding:.9rem 1rem}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="logo">Review<span>Guard</span></a>
+  <div class="nav-right">
+    <a href="/" class="nav-link">Analyzer</a>
+    <span style="font-size:12px;color:var(--muted2)"><span class="live-dot"></span>Live</span>
+  </div>
+</nav>
+<main>
+  <div class="page-header fade-in">
+    <div class="page-title">Analytics Dashboard</div>
+    <div class="page-sub">Real-time usage statistics for ReviewGuard</div>
+    <button class="refresh-btn" onclick="loadData()">&#8635; Refresh</button>
+  </div>
+  <div id="content"><div class="loading">Loading analytics...</div></div>
+</main>
+<script>
+const API = "https://fake-review-api-sz0k.onrender.com";
+let charts = {};
+
+async function loadData() {
+  try {
+    const res = await fetch(API + "/analytics");
+    const d = await res.json();
+    renderAll(d);
+  } catch(e) {
+    document.getElementById("content").innerHTML = `<div class="empty-state"><div class="empty-icon">&#9888;</div><div class="empty-text">Could not load analytics. Make sure the API is running.</div></div>`;
+  }
+}
+
+function renderAll(d) {
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+
+  const isEmpty = d.total === 0;
+
+  document.getElementById("content").innerHTML = `
+    <div class="metrics-grid fade-in">
+      <div class="metric-card metric-total"><div class="metric-label">Total analyzed</div><div class="metric-value" id="m-total">0</div><div class="metric-sub">All time</div></div>
+      <div class="metric-card metric-fake"><div class="metric-label">Fake reviews</div><div class="metric-value" id="m-fake">0</div><div class="metric-sub" id="m-fake-pct">0% of total</div></div>
+      <div class="metric-card metric-genuine"><div class="metric-label">Genuine reviews</div><div class="metric-value" id="m-genuine">0</div><div class="metric-sub" id="m-genuine-pct">0% of total</div></div>
+      <div class="metric-card metric-conf"><div class="metric-label">Avg confidence</div><div class="metric-value" id="m-conf">0%</div><div class="metric-sub">${d.avg_latency_ms}ms avg response</div></div>
+    </div>
+
+    <div class="charts-grid fade-in" style="animation-delay:0.1s">
+      <div class="chart-card">
+        <div class="chart-title">Reviews per day <span class="chart-sub">Last 7 days</span></div>
+        <div class="chart-wrap" style="height:220px"><canvas id="daily-chart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Fake vs Genuine</div>
+        <div class="donut-wrap">
+          <div class="chart-wrap" style="height:160px;width:160px"><canvas id="donut-chart"></canvas></div>
+          <div class="donut-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#ff4d6d"></div>Fake<span class="legend-val">${d.fake_count}</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#00e5a0"></div>Genuine<span class="legend-val">${d.genuine_count}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-grid fade-in" style="animation-delay:0.2s">
+      <div class="signals-card">
+        <div class="chart-title">Top fake signals</div>
+        <div id="signals-list"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Hourly activity <span class="chart-sub">Last 24h</span></div>
+        <div class="chart-wrap" style="height:180px"><canvas id="hourly-chart"></canvas></div>
+      </div>
+      <div class="rating-dist-card">
+        <div class="chart-title">Rating distribution</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="rating-chart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="recent-card fade-in" style="animation-delay:0.3s">
+      <div class="chart-title">Recent predictions</div>
+      <div id="recent-table"></div>
+    </div>
+  `;
+
+  // Animate counters
+  animCount("m-total",   d.total);
+  animCount("m-fake",    d.fake_count);
+  animCount("m-genuine", d.genuine_count);
+  document.getElementById("m-fake-pct").textContent    = d.fake_pct + "% of total";
+  document.getElementById("m-genuine-pct").textContent = d.genuine_pct + "% of total";
+  setTimeout(() => { document.getElementById("m-conf").textContent = d.avg_confidence + "%"; }, 600);
+
+  if (!isEmpty) {
+    renderDailyChart(d.daily);
+    renderDonut(d.fake_count, d.genuine_count);
+    renderHourly(d.hourly);
+    renderRating(d.rating_dist);
+    renderSignals(d.signals_summary, d.total);
+    renderRecent(d.recent);
+  } else {
+    ["daily-chart","donut-chart","hourly-chart","rating-chart"].forEach(id => {
+      const canvas = document.getElementById(id);
+      if(canvas) canvas.parentElement.innerHTML = `<div class="empty-state" style="padding:1.5rem"><div class="empty-text">No data yet. Analyze some reviews!</div></div>`;
+    });
+  }
+}
+
+function animCount(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const dur = 1200;
+  const start = performance.now();
+  function upd(now) {
+    const t = Math.min((now - start) / dur, 1);
+    const ease = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(ease * target).toLocaleString();
+    if (t < 1) requestAnimationFrame(upd);
+  }
+  requestAnimationFrame(upd);
+}
+
+function renderDailyChart(daily) {
+  const ctx = document.getElementById("daily-chart");
+  if (!ctx) return;
+  charts.daily = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: daily.map(d => d.label),
+      datasets: [
+        { label: "Genuine", data: daily.map(d => d.genuine), backgroundColor: "rgba(0,229,160,0.7)", borderRadius: 4, barPercentage: 0.7 },
+        { label: "Fake",    data: daily.map(d => d.fake),    backgroundColor: "rgba(255,77,109,0.7)", borderRadius: 4, barPercentage: 0.7 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { color: "#6e6e85", font: { size: 11 } } },
+        y: { stacked: true, grid: { color: "rgba(255,255,255,0.04)" }, ticks: { color: "#6e6e85", font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function renderDonut(fakes, genuine) {
+  const ctx = document.getElementById("donut-chart");
+  if (!ctx) return;
+  charts.donut = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      datasets: [{
+        data: [fakes || 0, genuine || 0],
+        backgroundColor: ["#ff4d6d", "#00e5a0"],
+        borderWidth: 0,
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: "70%",
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => " " + ctx.label + ": " + ctx.raw } } }
+    }
+  });
+}
+
+function renderHourly(hourly) {
+  const ctx = document.getElementById("hourly-chart");
+  if (!ctx) return;
+  charts.hourly = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: hourly.map(h => h.hour + ":00"),
+      datasets: [{ data: hourly.map(h => h.count), borderColor: "#7c6aff", backgroundColor: "rgba(124,106,255,0.08)", borderWidth: 1.5, tension: 0.4, pointRadius: 0, fill: true }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: "#6e6e85", font: { size: 10 }, maxTicksLimit: 8, maxRotation: 0 } },
+        y: { grid: { color: "rgba(255,255,255,0.04)" }, ticks: { color: "#6e6e85", font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+function renderRating(ratingDist) {
+  const ctx = document.getElementById("rating-chart");
+  if (!ctx || !ratingDist.length) return;
+  charts.rating = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: ratingDist.map(r => r.rating + "★"),
+      datasets: [
+        { label: "Genuine", data: ratingDist.map(r => r.total - r.fake), backgroundColor: "rgba(0,229,160,0.6)", borderRadius: 4, barPercentage: 0.7 },
+        { label: "Fake",    data: ratingDist.map(r => r.fake),            backgroundColor: "rgba(255,77,109,0.6)", borderRadius: 4, barPercentage: 0.7 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { color: "#6e6e85", font: { size: 11 } } },
+        y: { stacked: true, grid: { color: "rgba(255,255,255,0.04)" }, ticks: { color: "#6e6e85", font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function renderSignals(sig, total) {
+  const el = document.getElementById("signals-list");
+  if (!el) return;
+  const items = [
+    { name: "Short reviews (<20 words)",   count: sig.short_reviews },
+    { name: "Excess exclamations (>3)",    count: sig.excess_exclamations },
+    { name: "Repetitive language (<60%)",  count: sig.repetitive_language },
+    { name: "Excess superlatives (>2)",    count: sig.excess_superlatives },
+  ];
+  const max = Math.max(...items.map(i => i.count), 1);
+  el.innerHTML = items.map(item => `
+    <div class="signal-row">
+      <div class="signal-name-col">${item.name}</div>
+      <div class="signal-bar-track"><div class="signal-bar-fill" style="width:${Math.round(item.count/max*100)}%"></div></div>
+      <div class="signal-count">${item.count}</div>
+    </div>`).join("");
+}
+
+function renderRecent(recent) {
+  const el = document.getElementById("recent-table");
+  if (!el) return;
+  if (!recent.length) { el.innerHTML = `<div class="empty-state"><div class="empty-text">No predictions yet</div></div>`; return; }
+  el.innerHTML = `<table class="recent-table">
+    <thead><tr><th>Time (UTC)</th><th>Verdict</th><th>Confidence</th><th>Words</th><th>Rating</th></tr></thead>
+    <tbody>${recent.map(r => `
+      <tr>
+        <td>${r.time}</td>
+        <td><span class="badge ${r.is_fake ? "badge-fake" : "badge-genuine"}">${r.label}</span></td>
+        <td>${r.confidence}%</td>
+        <td>${r.word_count}</td>
+        <td>${r.rating}★</td>
+      </tr>`).join("")}
+    </tbody>
+  </table>`;
+}
+
+loadData();
+setInterval(loadData, 30000);
+</script>
+</body>
+</html>
